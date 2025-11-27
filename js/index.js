@@ -36,11 +36,6 @@ var app = {
         canvas.style.width  = '800px';
         canvas.style.height = '600px';
 
-        // Set background color (cyan for pitch)
-        var ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#00D7D7';
-        ctx.fillRect(0, 0, 256, 192);
-
         init_game(canvas);
     },
 

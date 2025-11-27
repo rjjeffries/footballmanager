@@ -3,7 +3,7 @@
  */
 
 var GAME = {
-     sprite_data : [24,88,126,26,120,72,206,2,
+    sprite_data : [24,88,126,26,120,72,206,2,
         48,48,24,60,28,56,48,40,
         24,24,30,58,24,42,36,32,
         24,24,24,28,60,24,28,8,
@@ -18,6 +18,15 @@ var GAME = {
         24,24,188,90,28,56,40,36,
         12,12,60,91,152,62,64,
         192,48,48,60,218,25,124,2,3],
+
+    menu_items: [
+        "1. START MATCH",
+        "2. VIEW TEAM",
+        "3. QUIT"
+    ],
+    selected_menu_item: 0,
+    game_mode: "menu", // "menu" or "match"
+    keys_pressed: {},
 
     left_pitch : "PLOT 71,88: DRAW -16,-8: DRAW -8,-16: DRAW 24,0: PLOT 8,0:DRAW 175,175: PLOT 72,64: DRAW 0,24: " +
     "DRAW 48,48: DRAW 0,-24: PLOT 64,56: DRAW 24,0: DRAW 64,64:DRAW -24,0: PLOT 32,24: DRAW 96,0: DRAW 115,115: DRAW -96,0: " +
@@ -152,6 +161,118 @@ var GAME = {
         for (var i = 0; i <16; i++ ){
             this.speccy.create_sprite(this.sprite_data.slice(8*i, 8*i+8));
         }
+        this.setup_keyboard();
+    },
+
+    setup_keyboard: function(){
+        var self = this;
+        document.addEventListener('keydown', function(e){
+            self.keys_pressed[e.key] = true;
+            self.handle_keypress(e);
+        });
+        document.addEventListener('keyup', function(e){
+            self.keys_pressed[e.key] = false;
+        });
+    },
+
+    handle_keypress: function(e){
+        if(this.game_mode === "menu"){
+            if(e.key === "ArrowUp"){
+                this.selected_menu_item = Math.max(0, this.selected_menu_item - 1);
+                this.draw_menu();
+                e.preventDefault();
+            } else if(e.key === "ArrowDown"){
+                this.selected_menu_item = Math.min(this.menu_items.length - 1, this.selected_menu_item + 1);
+                this.draw_menu();
+                e.preventDefault();
+            } else if(e.key === "Enter" || e.key === " "){
+                this.handle_menu_select();
+                e.preventDefault();
+            } else if(e.key >= "1" && e.key <= "3"){
+                var num = parseInt(e.key) - 1;
+                if(num < this.menu_items.length){
+                    this.selected_menu_item = num;
+                    this.handle_menu_select();
+                }
+                e.preventDefault();
+            }
+        }
+    },
+
+    handle_menu_select: function(){
+        switch(this.selected_menu_item){
+            case 0: // Start Match
+                this.game_mode = "match";
+                this.start_match();
+                break;
+            case 1: // View Team
+                this.show_message("TEAM VIEWER NOT YET IMPLEMENTED");
+                break;
+            case 2: // Quit
+                this.show_message("THANKS FOR PLAYING!");
+                break;
+        }
+    },
+
+    show_message: function(text){
+        var ctx = this.speccy._ctx;
+        ctx.fillStyle = "#D7D700";
+        ctx.fillRect(32, 80, 192, 32);
+        ctx.fillStyle = "#000000";
+        ctx.font = "12px monospace";
+        ctx.fillText(text, 40, 100);
+    },
+
+    draw_menu: function(){
+        var ctx = this.speccy._ctx;
+
+        // Clear screen with background color
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, 256, 192);
+
+        // Draw title
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 16px monospace";
+        ctx.fillText("FOOTBALL MANAGER", 40, 30);
+
+        ctx.font = "12px monospace";
+        ctx.fillText("1982 K.TOMS - JS VERSION", 24, 50);
+
+        // Draw menu items
+        ctx.font = "14px monospace";
+        for(var i = 0; i < this.menu_items.length; i++){
+            if(i === this.selected_menu_item){
+                // Highlight selected item
+                ctx.fillStyle = "#FFFF00";
+                ctx.fillRect(40, 80 + i * 25, 180, 20);
+                ctx.fillStyle = "#000000";
+            } else {
+                ctx.fillStyle = "#FFFFFF";
+            }
+            ctx.fillText(this.menu_items[i], 48, 95 + i * 25);
+        }
+
+        // Instructions
+        ctx.fillStyle = "#00D7D7";
+        ctx.font = "10px monospace";
+        ctx.fillText("USE ARROW KEYS OR 1-3 TO SELECT", 16, 175);
+        ctx.fillText("PRESS ENTER TO CONFIRM", 40, 188);
+    },
+
+    start_match: function(){
+        // Clear screen and draw pitch
+        var ctx = this.speccy._ctx;
+        ctx.fillStyle = '#00D7D7';
+        ctx.fillRect(0, 0, 256, 192);
+
+        this.draw_pitch(true);
+        this.plot_players(true);
+
+        // Start the match animation after a brief delay
+        var self = this;
+        setTimeout(function(){
+            self.animate_match();
+        }, 500);
     },
 
     animate_match: function(){
@@ -230,11 +351,7 @@ init_game = function(canvas) {
     var ctx = canvas.getContext('2d');
 
     game.init_game(ctx);
-    game.draw_pitch(true);
-    game.plot_players(true);
 
-    // Start the match animation after a brief delay
-    setTimeout(function(){
-        game.animate_match();
-    }, 1000);
+    // Show the main menu
+    game.draw_menu();
 };
