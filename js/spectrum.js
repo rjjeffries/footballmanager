@@ -71,7 +71,11 @@ var SPECCY = function(ctx) {
         },
 
         sprite_at : function(sprite, x, y){
-            this._draw_sprite(sprite, 8*x, y*8);
+            // Convert character coordinates to pixel coordinates
+            // Y axis is inverted in Spectrum (0 is at bottom)
+            var pixelX = x * 8;
+            var pixelY = (23 - y) * 8; // Invert Y axis (23 = 192/8 - 1)
+            this._draw_sprite(sprite, pixelX, pixelY);
         },
 
         print_at: function(text, x, y){
