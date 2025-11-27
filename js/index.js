@@ -31,10 +31,16 @@ var app = {
     initialize: function() {
         document.addEventListener('deviceready', this.onDeviceReady.bind(this), false);
         var canvas = document.getElementById('screen');
-        canvas.width  = 255;
-        canvas.height = 300;
+        canvas.width  = 256;
+        canvas.height = 192;
         canvas.style.width  = '800px';
         canvas.style.height = '600px';
+
+        // Set background color (cyan for pitch)
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#00D7D7';
+        ctx.fillRect(0, 0, 256, 192);
+
         init_game(canvas);
     },
 

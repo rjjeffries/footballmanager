@@ -56,51 +56,172 @@ var GAME = {
 
     plot_players: function(left){
         var forwards = [ [],[],[]];
-        var defenders = [];
+        var defenders = [ [],[],[]]; // defending team players (g in original)
+        var ball = []; // ball position (d in original)
         var keeper= [];
         if(left===true){
-            forwards[0][1] = 3 +this._rand(18);
+            // Set up initial forward position
+            forwards[0][1] = 3 + this._rand(18);
             forwards[0][0] = 25 + this._rand(6);
-            defenders[0] = forwards[0][0] - 1;
-            defenders[1] = forwards[0][1];
-            defenders[2] = -1;
-            defenders[3] = 0;
-            keeper[0] = 11+ this._rand(2) + 2 * (forwards[0][1] < 11) - 2 *(forwards[0][1] >10);
+
+            // Set up ball position with forward
+            ball[0] = forwards[0][0] - 1;
+            ball[1] = forwards[0][1];
+            ball[2] = -1;  // x velocity
+            ball[3] = 0;   // y velocity
+
+            // Set up keeper
+            keeper[0] = 11 + this._rand(2) + 2 * (forwards[0][1] < 11) - 2 * (forwards[0][1] > 10);
             keeper[1] = 23 - keeper[0];
+
             var self = this;
-            function place_forwards(self) {
+            function place_forwards() {
+                // Place remaining 2 forwards
                 for (var i = 1; i <= 2; i++) {
                     forwards[i][0] = 10 + self._rand(10);
-                    forwards[i][1] = self._rand(25)
+                    forwards[i][1] = self._rand(25);
                     if(forwards[i][0] + forwards[i][1] > 25 ||
-                    forwards[i][0]>forwards[0][0] -4){
+                       forwards[i][0] > forwards[0][0] - 4){
                         return false;
                     }
-                    for(var j =0 ;j<3;j++) {
+                    for(var j = 0; j < 3; j++) {
                         if (forwards[j][1] == forwards[i][1] && j !== i) {
                             return false;
                         }
                     }
                 }
 
-                for(var i=0; i<3; i++){
-                    g[i][0] = 10 + self._rand(10);
-                    g[i][1] = self._rand(18);
+                // Place 3 defenders
+                for(var i = 0; i < 3; i++){
+                    defenders[i][0] = 10 + self._rand(10);
+                    defenders[i][1] = self._rand(18);
+                    if(defenders[i][0] + defenders[i][1] < 24 ||
+                       defenders[i][0] > forwards[0][0] - 4){
+                        return false;
+                    }
+                    // Check for collisions with forwards and other defenders
+                    for(var j = 0; j < 3; j++){
+                        if((defenders[i][1] == forwards[j][1]) ||
+                           (defenders[i][1] == defenders[j][1] && j !== i)){
+                            return false;
+                        }
+                    }
                 }
                 return true;
             }
             while(!place_forwards());
+
+            // Now draw all the players and ball
+            // Draw forwards (attacking team) - using away color sprites (0,2,4)
+            this.speccy.sprite_at(this.players_left[0], forwards[0][0], forwards[0][1]);
+            for(var i = 1; i <= 2; i++){
+                var sprite = forwards[i][1] < 10 ? this.players_left[2] : this.players_left[0];
+                this.speccy.sprite_at(sprite, forwards[i][0], forwards[i][1]);
+            }
+
+            // Draw defenders (defending team) - using home color sprites (1,3)
+            for(var i = 0; i < 3; i++){
+                var sprite = defenders[i][1] < 10 ? this.players_left[3] : this.players_left[1];
+                this.speccy.sprite_at(sprite, defenders[i][0], defenders[i][1]);
+            }
+
+            // Draw ball
+            this.speccy.sprite_at(this.players_left[4], ball[0], ball[1]);
+
+            // Draw keeper
+            this.speccy.sprite_at(this.players_left[6], keeper[1], keeper[0]);
+
+            // Store for animation
+            this.game_state = {
+                forwards: forwards,
+                defenders: defenders,
+                ball: ball,
+                keeper: keeper,
+                left: left
+            };
         }
     },
 
     _command_re : /\ *(DRAW|PLOT)\ +(-?[0-9]{1,}),(-?[0-9]{1,})/,
      speccy : null,
+     game_state : null,
+     animation_frame : 0,
 
     init_game: function(ctx){
         this.speccy = SPECCY(ctx);
         for (var i = 0; i <16; i++ ){
             this.speccy.create_sprite(this.sprite_data.slice(8*i, 8*i+8));
         }
+    },
+
+    animate_match: function(){
+        if(!this.game_state) return;
+
+        var ball = this.game_state.ball;
+        var forwards = this.game_state.forwards;
+        var keeper = this.game_state.keeper;
+
+        this.animation_frame++;
+
+        // Phase 1: Dribble left (first 5 frames)
+        if(this.animation_frame <= 5){
+            // Clear old ball position
+            this.speccy.sprite_at(5, ball[0], ball[1]); // sprite 5 is empty/background
+
+            // Move ball left
+            ball[0] = ball[0] - 1;
+            ball[1] = ball[1]; // y stays same during dribble
+
+            // Draw new ball position
+            this.speccy.sprite_at(this.players_left[4], ball[0], ball[1]);
+        }
+        // Phase 2: Kick towards goal
+        else if(this.animation_frame <= 30){
+            // Clear old ball position
+            this.speccy.sprite_at(5, ball[0], ball[1]);
+
+            // Set velocity towards goal on first kick frame
+            if(this.animation_frame == 6){
+                ball[2] = -2; // move left
+                ball[3] = (ball[1] < 8) ? 1 : (ball[1] > 15) ? -1 : (this._rand(2) - 1.5) * 2; // aim for goal
+            }
+
+            // Move ball
+            ball[0] = ball[0] + ball[2];
+            ball[1] = ball[1] + ball[3];
+
+            // Check boundaries (out of bounds)
+            if(ball[0] < 0 || ball[1] < 0 || ball[1] > 21 || ball[0] + ball[1] < 22){
+                // Ball went out
+                this.animation_frame = 100; // End animation
+                return;
+            }
+
+            // Check for goal (left goal area is roughly x < 8, y between 8-14)
+            if(ball[0] < 8 && ball[1] >= 8 && ball[1] <= 14){
+                // GOAL!
+                this.speccy.sprite_at(this.players_left[4], ball[0], ball[1]);
+                var ctx = this.speccy._ctx;
+                ctx.fillStyle = "#00D7D7";
+                ctx.fillRect(80, 10, 100, 20);
+                ctx.fillStyle = "#000000";
+                ctx.font = "16px monospace";
+                ctx.fillText("GOAL!", 90, 25);
+                this.animation_frame = 100;
+                return;
+            }
+
+            // Draw ball at new position
+            this.speccy.sprite_at(this.players_left[4], ball[0], ball[1]);
+        }
+        else {
+            // Animation complete
+            return;
+        }
+
+        // Continue animation
+        var self = this;
+        setTimeout(function(){ self.animate_match(); }, 100); // ~10fps
     }
 };
 
@@ -112,5 +233,8 @@ init_game = function(canvas) {
     game.draw_pitch(true);
     game.plot_players(true);
 
-
+    // Start the match animation after a brief delay
+    setTimeout(function(){
+        game.animate_match();
+    }, 1000);
 };
